@@ -17,5 +17,5 @@ jobs:
           if [ -z "${VERSION}" ]; then
             VERSION="v0.0.1"
           fi
-          echo "Pinging proxy.golang.org for github.com/tuxnoob/smallpict-go@${VERSION}..."
-          curl -s "https://proxy.golang.org/github.com/tuxnoob/smallpict-go/@v/${VERSION}.info" || true
+          echo "Pinging proxy.golang.org for github.com/smallpict/smallpict-go@${VERSION}..."
+          curl -s "https://proxy.golang.org/github.com/smallpict/smallpict-go/@v/${VERSION}.info" || true

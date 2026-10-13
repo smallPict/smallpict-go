@@ -2,9 +2,9 @@
 
 Official idiomatic Go SDK for the [SmallPict Image Optimization API](https://smallpict.app) — high-performance next-gen image transcoding (AVIF, WebP), smart compression, Edge CDN delivery, and cache purging.
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/tuxnoob/smallpict-go.svg)](https://pkg.go.dev/github.com/tuxnoob/smallpict-go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/smallpict/smallpict-go.svg)](https://pkg.go.dev/github.com/smallpict/smallpict-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/tuxnoob/smallpict-go)](https://goreportcard.com/report/github.com/tuxnoob/smallpict-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/smallpict/smallpict-go)](https://goreportcard.com/report/github.com/smallpict/smallpict-go)
 
 ---
 
@@ -23,7 +23,7 @@ Official idiomatic Go SDK for the [SmallPict Image Optimization API](https://sma
 ## 📥 Installation
 
 ```bash
-go get -u github.com/tuxnoob/smallpict-go
+go get -u github.com/smallpict/smallpict-go
 ```
 
 ---
@@ -41,7 +41,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/tuxnoob/smallpict-go"
+	"github.com/smallpict/smallpict-go"
 )
 
 func main() {
@@ -76,7 +76,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/tuxnoob/smallpict-go"
+	"github.com/smallpict/smallpict-go"
 )
 
 func handleUpload(client *smallpict.Client) http.HandlerFunc {

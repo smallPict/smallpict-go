@@ -1,3 +1,3 @@
-module github.com/tuxnoob/smallpict-go
+module github.com/smallpict/smallpict-go
 
 go 1.21
