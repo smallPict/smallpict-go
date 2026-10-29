@@ -146,3 +146,44 @@ func TestOptimizeModeNotInPlan(t *testing.T) {
 		t.Errorf("unexpected details.mode: %v", apiErr.Details["mode"])
 	}
 }
+
+// Quality is sent only when set, so the server picks its default per mode (CMP-04).
+func TestOptimizeQualitySentOnlyWhenSet(t *testing.T) {
+	cases := []struct {
+		name        string
+		opts        *OptimizeOptions
+		wantQuality interface{} // nil means the quality key is absent
+	}{
+		{name: "nil options", opts: nil},
+		{name: "extreme without quality", opts: &OptimizeOptions{Mode: ModeExtreme}},
+		{name: "quality set", opts: &OptimizeOptions{Mode: ModeExtreme, Quality: 70}, wantQuality: float64(70)},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var sent map[string]interface{}
+			mock := newMockHTTPClient(func(r *http.Request) *http.Response {
+				var body struct {
+					Options map[string]interface{} `json:"options"`
+				}
+				b, _ := io.ReadAll(r.Body)
+				_ = json.Unmarshal(b, &body)
+				sent = body.Options
+				return jsonResponse(http.StatusOK, map[string]interface{}{"job_id": "job_q", "status": "queued"})
+			})
+			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+
+			if _, err := client.Optimize(context.Background(), bytes.NewBufferString("img"), tc.opts); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			got, present := sent["quality"]
+			if tc.wantQuality == nil {
+				if present {
+					t.Errorf("expected no quality key, got %v", got)
+				}
+			} else if got != tc.wantQuality {
+				t.Errorf("expected quality %v, got %v", tc.wantQuality, got)
+			}
+		})
+	}
+}

@@ -108,6 +108,28 @@ func handleUpload(client *smallpict.Client) http.HandlerFunc {
 }
 ```
 
+### 3. Compression Mode
+
+`Mode` is `smallpict.ModeLossy` (server default), `smallpict.ModeExtreme` or `smallpict.ModeLossless`. `extreme` gives the smallest files and is available on every plan; `lossless` needs a plan that includes it. Leave `Quality` at zero with `extreme` so the server picks its default for the output format; a quality you set is kept, or raised to that format's floor. The mode comparison is in the [image settings docs](https://smallpict.app/en/docs/image-settings), the per-format defaults in the API contract.
+
+```go
+result, err := client.OptimizeFile(ctx, "hero-banner.jpg", &smallpict.OptimizeOptions{
+	Format: smallpict.FormatWebP,
+	Mode:   smallpict.ModeExtreme, // no Quality: the server uses the WebP default for extreme
+})
+var apiErr *smallpict.Error
+if smallpict.IsPermissionDenied(err) && errors.As(err, &apiErr) {
+	log.Fatalf("mode not in plan, allowed: %v", apiErr.Details["allowed_modes"])
+} else if err != nil {
+	log.Fatal(err)
+}
+
+status, err := client.GetJobStatus(ctx, result.JobID)
+if err == nil && status.QualityApplied != nil {
+	fmt.Printf("%s at quality %d\n", status.ModeApplied, *status.QualityApplied)
+}
+```
+
 ---
 
 ## 📊 Checking Quota & Invalidate CDN Cache

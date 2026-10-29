@@ -69,7 +69,6 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 	if opts == nil {
 		opts = &OptimizeOptions{
 			Format:        FormatAuto,
-			Quality:       80,
 			Fit:           FitCover,
 			StripMetadata: true,
 		}
@@ -112,12 +111,15 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 
 	options := map[string]interface{}{
 		"format":         opts.Format,
-		"quality":        opts.Quality,
 		"max_width":      opts.MaxWidth,
 		"max_height":     opts.MaxHeight,
 		"max_dimension":  opts.MaxDimension,
 		"fit":            opts.Fit,
 		"strip_metadata": opts.StripMetadata,
+	}
+	// Zero quality is omitted so the server picks its default for the mode and format.
+	if opts.Quality != 0 {
+		options["quality"] = opts.Quality
 	}
 	if mode != "" {
 		options["mode"] = string(mode)
@@ -188,7 +190,6 @@ func (c *Client) OptimizeFile(ctx context.Context, filePath string, opts *Optimi
 	if opts == nil {
 		opts = &OptimizeOptions{
 			Format:        FormatAuto,
-			Quality:       80,
 			Fit:           FitCover,
 			StripMetadata: true,
 		}

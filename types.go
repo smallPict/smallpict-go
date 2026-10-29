@@ -46,7 +46,9 @@ const (
 
 // OptimizeOptions contains transformation and compression parameters for an image.
 type OptimizeOptions struct {
-	Format       string `json:"format,omitempty"`
+	Format string `json:"format,omitempty"`
+	// Quality is the encoder quality (1-100). Zero leaves it to the server,
+	// which picks a default per mode and output format.
 	Quality      int    `json:"quality,omitempty"`
 	MaxWidth     int    `json:"max_width,omitempty"`
 	MaxHeight    int    `json:"max_height,omitempty"`

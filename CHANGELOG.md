@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `OptimizeOptions.Mode` with the typed `CompressionMode` values `ModeLossy` (server default), `ModeExtreme` and `ModeLossless`, sent as `options.mode` (FND-07). The server checks the mode against the plan: `403 mode_not_in_plan` is an `*Error` for which `IsPermissionDenied` is true, with `Details["mode"]` and `Details["allowed_modes"]`; `400 invalid_mode` satisfies `IsValidationError`.
 - `JobStatusResult.ModeApplied` and `JobStatusResult.QualityApplied`, read from `mode_applied` and `quality_applied` of the job status. They stay empty (`""`, `nil`) for jobs created before the server reported them.
 - **Upload folders (FLD-03).** `OptimizeOptions.Folder` is sent as `options.folder` and omitted when empty. `OptimizeResult.Folder` and `JobStatusResult.Folder` return the folder the server stored (lower case), empty without one. Malformed folders (empty segments such as `a//b`, `/a` or `a/`, `..` segments, more than 3 segments) return a `VALIDATION_FAILED` error before any request; the server's `400 invalid_folder` satisfies `IsValidationError` and keeps the server's message.
+- README section "Compression Mode" with a `ModeExtreme` example that leaves `Quality` unset (CMP-04).
 - **Folder purge (FLD-03).** `Client.PurgeFolder(ctx, folder)` sends `{"purge_type": "folder", "folder": ...}` to `POST /v1/purge`, and `PurgeTypeFolder` names the type. `PurgeCDN` with `PurgeTypeFolder` returns a `VALIDATION_FAILED` error without a request, since it has no folder argument; `url` and `all` purges are unchanged.
 
 ### Deprecated
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `Lossless: true` used to be sent as the `lossless` key, which the server ignored; it is now honoured as `mode: "lossless"`. The SDK no longer sends the `lossless` key.
+- **`quality` is sent only when set (CMP-04).** `Optimize` and `OptimizeFile` used to send `quality: 80` with nil options and `quality: 0` when `Quality` was left at zero. A zero `Quality` is now omitted, so the server picks its default per mode and output format: `ModeExtreme` now gets its per-codec default instead of lossy-sized output at 80. Lossy results are unchanged, since the server default for lossy is 80.
 
 ### Changed
 - Module path moved to `github.com/smallpict/smallpict-go` after the repository was transferred to the smallPict GitHub organization. Update imports from `github.com/tuxnoob/smallpict-go` to the new path.
