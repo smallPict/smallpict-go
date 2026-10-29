@@ -83,6 +83,12 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 		mode = ModeLossless
 	}
 
+	if opts.Folder != "" {
+		if err := validateFolder(opts.Folder); err != nil {
+			return nil, err
+		}
+	}
+
 	var data []byte
 	var err error
 	if source != nil {
@@ -115,6 +121,9 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 	}
 	if mode != "" {
 		options["mode"] = string(mode)
+	}
+	if opts.Folder != "" {
+		options["folder"] = opts.Folder
 	}
 	payload := map[string]interface{}{
 		"filename":     filename,
@@ -159,6 +168,7 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 		BytesSaved:        saved,
 		SavingsPercentage: savingsPct,
 		UploadURL:         getString(resMap, "upload_url", ""),
+		Folder:            getString(resMap, "folder", ""),
 	}, nil
 }
 
@@ -236,11 +246,29 @@ func (c *Client) PurgeCDN(ctx context.Context, urls []string, purgeType string) 
 	if purgeType == "" {
 		purgeType = PurgeTypeURL
 	}
-	payload := map[string]interface{}{
+	if purgeType == PurgeTypeFolder {
+		return nil, &Error{Code: "VALIDATION_FAILED", Message: "purge type folder requires a folder; use PurgeFolder"}
+	}
+	return c.purge(ctx, map[string]interface{}{
 		"purge_type": purgeType,
 		"urls":       urls,
-	}
+	})
+}
 
+// PurgeFolder invalidates every file the account delivered under folder.
+// Folder purges are limited per hour: a 429 purge_rate_limited error
+// (IsRateLimit) is returned without automatic retry.
+func (c *Client) PurgeFolder(ctx context.Context, folder string) (*PurgeResponse, error) {
+	if err := validateFolder(folder); err != nil {
+		return nil, err
+	}
+	return c.purge(ctx, map[string]interface{}{
+		"purge_type": PurgeTypeFolder,
+		"folder":     folder,
+	})
+}
+
+func (c *Client) purge(ctx context.Context, payload map[string]interface{}) (*PurgeResponse, error) {
 	resMap, err := c.request(ctx, http.MethodPost, "/v1/purge", payload, "")
 	if err != nil {
 		return nil, err
@@ -249,6 +277,24 @@ func (c *Client) PurgeCDN(ctx context.Context, urls []string, purgeType string) 
 	return &PurgeResponse{
 		Message: getString(resMap, "message", "Purge job enqueued"),
 	}, nil
+}
+
+// validateFolder rejects obviously malformed folders before any request.
+// The server owns the full rule (400 invalid_folder).
+func validateFolder(folder string) error {
+	segments := strings.Split(folder, "/")
+	if len(segments) > 3 {
+		return &Error{Code: "VALIDATION_FAILED", Message: "folder has more than 3 segments"}
+	}
+	for _, seg := range segments {
+		if seg == "" {
+			return &Error{Code: "VALIDATION_FAILED", Message: "folder must not be empty or have empty segments (//, leading or trailing /)"}
+		}
+		if seg == ".." {
+			return &Error{Code: "VALIDATION_FAILED", Message: "folder must not contain .. segments"}
+		}
+	}
+	return nil
 }
 
 // ValidateKey checks if the configured API key is valid and active.
@@ -283,6 +329,7 @@ func (c *Client) GetJobStatus(ctx context.Context, jobID string) (*JobStatusResu
 		result.Error = v
 	}
 	result.ModeApplied = getString(resMap, "mode_applied", "")
+	result.Folder = getString(resMap, "folder", "")
 	if v, ok := resMap["quality_applied"].(float64); ok {
 		q := int(v)
 		result.QualityApplied = &q
@@ -380,8 +427,16 @@ func (c *Client) request(
 		requestID := resp.Header.Get("X-Request-ID")
 		retryAfterHeader := resp.Header.Get("Retry-After")
 
-		// Retry on 429 and transient 5xx
-		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 504) {
+		var result map[string]interface{}
+		_ = json.Unmarshal(respBytes, &result)
+
+		// Retry on 429 and transient 5xx. purge_rate_limited is an hourly
+		// limit, so retrying within seconds cannot succeed.
+		retryable := resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 504)
+		if retryable && errorCode(result) == "purge_rate_limited" {
+			retryable = false
+		}
+		if retryable {
 			if attempt <= c.maxRetries {
 				delay := baseDelay * time.Duration(1<<(attempt-1))
 				if retryAfterHeader != "" {
@@ -394,9 +449,6 @@ func (c *Client) request(
 				continue
 			}
 		}
-
-		var result map[string]interface{}
-		_ = json.Unmarshal(respBytes, &result)
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			msg := fmt.Sprintf("API request failed with HTTP %d", resp.StatusCode)
@@ -435,6 +487,15 @@ func (c *Client) request(
 	}
 
 	return nil, &Error{Code: "NETWORK_ERROR", Message: "Request failed after maximum retry attempts"}
+}
+
+func errorCode(result map[string]interface{}) string {
+	if errObj, ok := result["error"].(map[string]interface{}); ok {
+		if code, ok := errObj["code"].(string); ok {
+			return code
+		}
+	}
+	return ""
 }
 
 func getString(m map[string]interface{}, key, defaultVal string) string {

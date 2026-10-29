@@ -29,6 +29,8 @@ const (
 const (
 	PurgeTypeURL = "url"
 	PurgeTypeAll = "all"
+	// PurgeTypeFolder purges one upload folder; use PurgeFolder, which sends it.
+	PurgeTypeFolder = "folder"
 )
 
 // CompressionMode selects how POST /v1/optimize compresses the image.
@@ -62,6 +64,10 @@ type OptimizeOptions struct {
 	MIMEType       string `json:"mime_type,omitempty"`
 	ContentType    string `json:"content_type,omitempty"`
 	IdempotencyKey string `json:"-"`
+	// Folder stores the optimized file under this folder of the account
+	// (1-3 segments separated by "/"), sent as options.folder. Empty keeps
+	// the default location.
+	Folder string `json:"folder,omitempty"`
 }
 
 // OptimizeResult represents the output from a successful image optimization.
@@ -76,6 +82,9 @@ type OptimizeResult struct {
 	SavingsPercentage float64 `json:"savings_percentage"`
 	UploadURL         string  `json:"upload_url,omitempty"`
 	Data              []byte  `json:"-"`
+	// Folder is the folder stored with the job, normalized by the server
+	// (lower case); empty without one.
+	Folder string `json:"folder,omitempty"`
 }
 
 // QuotaResponse details the current monthly processing usage and account limits.
@@ -109,4 +118,6 @@ type JobStatusResult struct {
 	Error          map[string]interface{} `json:"error,omitempty"`
 	CreatedAt      *time.Time             `json:"created_at,omitempty"`
 	UpdatedAt      *time.Time             `json:"updated_at,omitempty"`
+	// Folder is the folder stored with the job (lower case); empty without one.
+	Folder string `json:"folder,omitempty"`
 }

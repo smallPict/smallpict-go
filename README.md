@@ -126,6 +126,23 @@ if err == nil {
 }
 ```
 
+### Folders
+
+`OptimizeOptions.Folder` stores the optimized file under a folder of your account (1-3 segments of letters, digits, `_` and `-`, separated by `/`). The server lower-cases it and returns it as `Folder` on the result and the job status. Leave it empty to keep the default location.
+
+```go
+res, err := client.OptimizeFile(ctx, "shoe.png", &smallpict.OptimizeOptions{Folder: "products/shoes"})
+
+// Purge every file delivered under that folder.
+_, err = client.PurgeFolder(ctx, "products/shoes")
+if smallpict.IsRateLimit(err) {
+	// 429 purge_rate_limited: folder purges are limited per hour (all: 2, folder: 10).
+	// The SDK does not retry this error; try again later.
+}
+```
+
+Malformed folders (`a//b`, a leading or trailing `/`, `..`, more than 3 segments) fail with a validation error before any request; the server rejects the rest with `400 invalid_folder` (`IsValidationError`).
+
 ---
 
 ## 🧪 Testing
