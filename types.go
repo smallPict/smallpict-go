@@ -31,14 +31,31 @@ const (
 	PurgeTypeAll = "all"
 )
 
+// CompressionMode selects how POST /v1/optimize compresses the image.
+// The server checks it against the plan; ModeLossy is the server default.
+type CompressionMode string
+
+// Compression modes accepted by POST /v1/optimize (options.mode).
+const (
+	ModeLossy    CompressionMode = "lossy"
+	ModeExtreme  CompressionMode = "extreme"
+	ModeLossless CompressionMode = "lossless"
+)
+
 // OptimizeOptions contains transformation and compression parameters for an image.
 type OptimizeOptions struct {
-	Format         string `json:"format,omitempty"`
-	Quality        int    `json:"quality,omitempty"`
-	MaxWidth       int    `json:"max_width,omitempty"`
-	MaxHeight      int    `json:"max_height,omitempty"`
-	MaxDimension   int    `json:"max_dimension,omitempty"`
-	Fit            string `json:"fit,omitempty"`
+	Format       string `json:"format,omitempty"`
+	Quality      int    `json:"quality,omitempty"`
+	MaxWidth     int    `json:"max_width,omitempty"`
+	MaxHeight    int    `json:"max_height,omitempty"`
+	MaxDimension int    `json:"max_dimension,omitempty"`
+	Fit          string `json:"fit,omitempty"`
+	// Mode is the compression mode. Empty leaves it to the server (lossy).
+	Mode CompressionMode `json:"mode,omitempty"`
+	// Lossless requests lossless compression.
+	//
+	// Deprecated: use Mode. Lossless true is sent as Mode ModeLossless; it is
+	// a validation error together with a different Mode.
 	Lossless       bool   `json:"lossless,omitempty"`
 	StripMetadata  bool   `json:"strip_metadata"`
 	Filename       string `json:"filename,omitempty"`
@@ -80,12 +97,16 @@ type PurgeResponse struct {
 
 // JobStatusResult represents the current state of an asynchronous conversion job.
 type JobStatusResult struct {
-	JobID      string                 `json:"job_id"`
-	Status     string                 `json:"status"`
-	URL        string                 `json:"url,omitempty"`
-	Format     string                 `json:"format,omitempty"`
-	BytesSaved *int64                 `json:"bytes_saved,omitempty"`
-	Error      map[string]interface{} `json:"error,omitempty"`
-	CreatedAt  *time.Time             `json:"created_at,omitempty"`
-	UpdatedAt  *time.Time             `json:"updated_at,omitempty"`
+	JobID      string `json:"job_id"`
+	Status     string `json:"status"`
+	URL        string `json:"url,omitempty"`
+	Format     string `json:"format,omitempty"`
+	BytesSaved *int64 `json:"bytes_saved,omitempty"`
+	// ModeApplied is the compression mode the server used; empty for older jobs.
+	ModeApplied string `json:"mode_applied,omitempty"`
+	// QualityApplied is the quality the encoder got; nil for older jobs.
+	QualityApplied *int                   `json:"quality_applied,omitempty"`
+	Error          map[string]interface{} `json:"error,omitempty"`
+	CreatedAt      *time.Time             `json:"created_at,omitempty"`
+	UpdatedAt      *time.Time             `json:"updated_at,omitempty"`
 }

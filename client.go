@@ -75,6 +75,14 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 		}
 	}
 
+	mode := opts.Mode
+	if opts.Lossless {
+		if mode != "" && mode != ModeLossless {
+			return nil, &Error{Code: "VALIDATION_FAILED", Message: fmt.Sprintf("Lossless contradicts Mode %q; use Mode only", mode)}
+		}
+		mode = ModeLossless
+	}
+
 	var data []byte
 	var err error
 	if source != nil {
@@ -96,21 +104,24 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 		mimeType = "image/jpeg"
 	}
 
+	options := map[string]interface{}{
+		"format":         opts.Format,
+		"quality":        opts.Quality,
+		"max_width":      opts.MaxWidth,
+		"max_height":     opts.MaxHeight,
+		"max_dimension":  opts.MaxDimension,
+		"fit":            opts.Fit,
+		"strip_metadata": opts.StripMetadata,
+	}
+	if mode != "" {
+		options["mode"] = string(mode)
+	}
 	payload := map[string]interface{}{
 		"filename":     filename,
 		"mime_type":    mimeType,
 		"content_type": mimeType,
 		"filesize":     len(data),
-		"options": map[string]interface{}{
-			"format":         opts.Format,
-			"quality":        opts.Quality,
-			"max_width":      opts.MaxWidth,
-			"max_height":     opts.MaxHeight,
-			"max_dimension":  opts.MaxDimension,
-			"fit":            opts.Fit,
-			"lossless":       opts.Lossless,
-			"strip_metadata": opts.StripMetadata,
-		},
+		"options":      options,
 	}
 
 	resMap, err := c.request(ctx, http.MethodPost, "/v1/optimize", payload, opts.IdempotencyKey)
@@ -270,6 +281,11 @@ func (c *Client) GetJobStatus(ctx context.Context, jobID string) (*JobStatusResu
 	}
 	if v, ok := resMap["error"].(map[string]interface{}); ok {
 		result.Error = v
+	}
+	result.ModeApplied = getString(resMap, "mode_applied", "")
+	if v, ok := resMap["quality_applied"].(float64); ok {
+		q := int(v)
+		result.QualityApplied = &q
 	}
 
 	return result, nil
