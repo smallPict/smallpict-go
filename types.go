@@ -42,6 +42,8 @@ const (
 	ModeLossy    CompressionMode = "lossy"
 	ModeExtreme  CompressionMode = "extreme"
 	ModeLossless CompressionMode = "lossless"
+	// ModeAuto lets the server pick the quality per image from a visual score (CMP-07).
+	ModeAuto CompressionMode = "auto"
 )
 
 // OptimizeOptions contains transformation and compression parameters for an image.

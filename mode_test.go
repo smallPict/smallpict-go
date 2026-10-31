@@ -29,6 +29,7 @@ func TestOptimizeModeMapping(t *testing.T) {
 	}{
 		{name: "no mode, no flag"},
 		{name: "mode only", opts: OptimizeOptions{Mode: ModeExtreme}, wireMode: "extreme"},
+		{name: "mode auto", opts: OptimizeOptions{Mode: ModeAuto}, wireMode: "auto"},
 		{name: "deprecated flag only", opts: OptimizeOptions{Lossless: true}, wireMode: "lossless"},
 		{name: "flag false is ignored", opts: OptimizeOptions{Lossless: false}},
 		{name: "flag agrees with mode", opts: OptimizeOptions{Mode: ModeLossless, Lossless: true}, wireMode: "lossless"},

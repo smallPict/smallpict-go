@@ -110,7 +110,7 @@ func handleUpload(client *smallpict.Client) http.HandlerFunc {
 
 ### 3. Compression Mode
 
-`Mode` is `smallpict.ModeLossy` (server default), `smallpict.ModeExtreme` or `smallpict.ModeLossless`. `extreme` gives the smallest files and is available on every plan; `lossless` needs a plan that includes it. Leave `Quality` at zero with `extreme` so the server picks its default for the output format; a quality you set is kept, or raised to that format's floor. The mode comparison is in the [image settings docs](https://smallpict.app/en/docs/image-settings), the per-format defaults in the API contract.
+`Mode` is `smallpict.ModeLossy` (server default), `smallpict.ModeExtreme`, `smallpict.ModeLossless` or `smallpict.ModeAuto`. `auto` picks, per image, the lowest quality that keeps the visual score (SSIMULACRA 2) at or above 70, and ignores `Quality`; it is on WP Pro and Business, Velocity, Momentum and sandbox keys (5 auto jobs per minute per sandbox key), and when it cannot search (PNG or GIF output, animation, time limit) the image is encoded `lossy` and `ModeApplied` says so. `extreme` gives the smallest files and is available on every plan; `lossless` needs a plan that includes it. Leave `Quality` at zero with `extreme` so the server picks its default for the output format; a quality you set is kept, or raised to that format's floor. The mode comparison is in the [image settings docs](https://smallpict.app/en/docs/image-settings), the per-format defaults in the API contract.
 
 ```go
 result, err := client.OptimizeFile(ctx, "hero-banner.jpg", &smallpict.OptimizeOptions{

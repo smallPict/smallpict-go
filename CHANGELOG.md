@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `ModeAuto` (`"auto"`): the server picks the quality per image from a visual score (CMP-07). Plans: WP Pro and Business, Velocity, Momentum and sandbox; a server without auto enabled answers `400 invalid_mode` (`IsValidationError`).
 - `OptimizeOptions.Mode` with the typed `CompressionMode` values `ModeLossy` (server default), `ModeExtreme` and `ModeLossless`, sent as `options.mode` (FND-07). The server checks the mode against the plan: `403 mode_not_in_plan` is an `*Error` for which `IsPermissionDenied` is true, with `Details["mode"]` and `Details["allowed_modes"]`; `400 invalid_mode` satisfies `IsValidationError`.
 - `JobStatusResult.ModeApplied` and `JobStatusResult.QualityApplied`, read from `mode_applied` and `quality_applied` of the job status. They stay empty (`""`, `nil`) for jobs created before the server reported them.
 - **Upload folders (FLD-03).** `OptimizeOptions.Folder` is sent as `options.folder` and omitted when empty. `OptimizeResult.Folder` and `JobStatusResult.Folder` return the folder the server stored (lower case), empty without one. Malformed folders (empty segments such as `a//b`, `/a` or `a/`, `..` segments, more than 3 segments) return a `VALIDATION_FAILED` error before any request; the server's `400 invalid_folder` satisfies `IsValidationError` and keeps the server's message.
