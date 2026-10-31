@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-10-31
+
 ### Added
 - `ModeAuto` (`"auto"`): the server picks the quality per image from a visual score (CMP-07). Plans: WP Pro and Business, Velocity, Momentum and sandbox; a server without auto enabled answers `400 invalid_mode` (`IsValidationError`).
 - `OptimizeOptions.Mode` with the typed `CompressionMode` values `ModeLossy` (server default), `ModeExtreme` and `ModeLossless`, sent as `options.mode` (FND-07). The server checks the mode against the plan: `403 mode_not_in_plan` is an `*Error` for which `IsPermissionDenied` is true, with `Details["mode"]` and `Details["allowed_modes"]`; `400 invalid_mode` satisfies `IsValidationError`.
