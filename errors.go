@@ -54,6 +54,30 @@ func (e *Error) Unwrap() error {
 	return e.Err
 }
 
+// UpgradeURL returns details.upgrade_url, the dashboard page where the missing
+// capacity is added, or "" when the error has none. Show it to the user; the
+// SDK never opens or fetches it.
+func (e *Error) UpgradeURL() string {
+	u, _ := e.Details["upgrade_url"].(string)
+	return u
+}
+
+// AllowedModes returns details.allowed_modes of a 403 mode_not_in_plan error,
+// or nil when the error has none.
+func (e *Error) AllowedModes() []string {
+	raw, ok := e.Details["allowed_modes"].([]interface{})
+	if !ok {
+		return nil
+	}
+	modes := make([]string, 0, len(raw))
+	for _, m := range raw {
+		if s, ok := m.(string); ok {
+			modes = append(modes, s)
+		}
+	}
+	return modes
+}
+
 // Helper predicates for error classification.
 
 func IsValidationError(err error) bool {

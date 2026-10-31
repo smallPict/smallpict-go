@@ -99,6 +99,63 @@ type QuotaResponse struct {
 	CDNEgressQuotaBytes *int64  `json:"cdn_egress_quota_bytes,omitempty"`
 	ActiveKeysCount     *int    `json:"active_keys_count,omitempty"`
 	ActiveSitesCount    *int    `json:"active_sites_count,omitempty"`
+	// Capacity is the read-only capacity of the key's product. It is nil when
+	// the server could not read it ("capacity": null) and on older servers that
+	// do not send it.
+	Capacity *Capacity `json:"capacity,omitempty"`
+}
+
+// Capacity is the read-only "capacity" object of GET /v1/quota. A member that
+// does not apply to the product or plan is nil. Capacity is bought only in the
+// dashboard; the SDK never opens or fetches ManageURL.
+type Capacity struct {
+	PeriodEnd *time.Time       `json:"period_end"`
+	Storage   *CapacityStorage `json:"storage"`
+	CDN       *CapacityCDN     `json:"cdn"`
+	Booster   CapacityBooster  `json:"booster"`
+	Lapse     *CapacityLapse   `json:"lapse"`
+	ManageURL string           `json:"manage_url"`
+}
+
+// CapacityStorage is the smallPict-managed storage of the account.
+type CapacityStorage struct {
+	LimitBytes  int64 `json:"limit_bytes"`
+	UsedBytes   int64 `json:"used_bytes"`
+	BaseBytes   int64 `json:"base_bytes"`
+	AddonBlocks int64 `json:"addon_blocks"`
+}
+
+// CapacityCDN is the managed CDN usage of the current cycle. Status is one of
+// "ok", "warn_80", "exceeded_grace" or "hard_block".
+type CapacityCDN struct {
+	LimitBytes int64  `json:"limit_bytes"`
+	UsedBytes  int64  `json:"used_bytes"`
+	Status     string `json:"status"`
+}
+
+// CapacityBooster holds the one-time booster balances left. A balance that does
+// not apply to the product is nil.
+type CapacityBooster struct {
+	Active        bool                `json:"active"`
+	WPQuotaBytes  *int64              `json:"wp_quota_bytes"`
+	APITransforms *int64              `json:"api_transforms"`
+	CDNBytes      *int64              `json:"cdn_bytes"`
+	NextExpiry    *CapacityNextExpiry `json:"next_expiry"`
+}
+
+// CapacityNextExpiry is the booster lot that expires first. Kind is one of
+// "wp_quota_bytes", "api_transforms" or "cdn_bytes".
+type CapacityNextExpiry struct {
+	Kind      string    `json:"kind"`
+	Units     int64     `json:"units"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// CapacityLapse is the unpaid-account state. Stage is one of "grace",
+// "blocked" or "deleting".
+type CapacityLapse struct {
+	Stage       string     `json:"stage"`
+	DeleteAfter *time.Time `json:"delete_after"`
 }
 
 // PurgeResponse confirms enqueuing of a CDN cache invalidation request.

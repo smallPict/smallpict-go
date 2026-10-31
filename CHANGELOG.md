@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README section "Compression Mode" with a `ModeExtreme` example that leaves `Quality` unset (CMP-04).
 - **Folder purge (FLD-03).** `Client.PurgeFolder(ctx, folder)` sends `{"purge_type": "folder", "folder": ...}` to `POST /v1/purge`, and `PurgeTypeFolder` names the type. `PurgeCDN` with `PurgeTypeFolder` returns a `VALIDATION_FAILED` error without a request, since it has no folder argument; `url` and `all` purges are unchanged.
 
+- **Capacity in `GetQuota` (SDK-02).** `QuotaResponse.Capacity` returns the read-only storage, CDN and booster balances (with the lot that expires first, `NextExpiry`), the unpaid-account state (`Lapse`), `PeriodEnd` and `ManageURL` of the key's product. Members that do not apply are `nil`; `Capacity` is `nil` when the server sends `null` and on older servers without it, whose responses still parse.
+- **Upgrade links on errors (SDK-02).** `(*Error).UpgradeURL()` returns `details.upgrade_url` (`""` when absent or not a string), and `(*Error).AllowedModes()` returns `details.allowed_modes` of `403 mode_not_in_plan` (`nil` when absent). `402 storage_quota_exceeded` and `account_read_only` satisfy `IsQuotaExceeded`; the 409 capacity codes stay a plain `*Error` with `StatusCode` 409. The SDK never opens these links.
+
 ### Deprecated
 - `OptimizeOptions.Lossless`: use `Mode: smallpict.ModeLossless`. `Lossless: true` is now sent as `mode: "lossless"`; with a different `Mode` it returns a `VALIDATION_FAILED` error before any request. It will not be removed before the next major version.
 

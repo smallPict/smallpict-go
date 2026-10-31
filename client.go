@@ -238,6 +238,14 @@ func (c *Client) GetQuota(ctx context.Context) (*QuotaResponse, error) {
 		val := int(v)
 		quota.ActiveSitesCount = &val
 	}
+	// Absent (older server) and null leave Capacity nil. A capacity that does
+	// not decode also stays nil, so GetQuota and ValidateKey keep working.
+	if raw, ok := resMap["capacity"].(map[string]interface{}); ok {
+		var capacity Capacity
+		if b, err := json.Marshal(raw); err == nil && json.Unmarshal(b, &capacity) == nil {
+			quota.Capacity = &capacity
+		}
+	}
 
 	return quota, nil
 }

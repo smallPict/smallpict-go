@@ -165,6 +165,27 @@ if smallpict.IsRateLimit(err) {
 
 Malformed folders (`a//b`, a leading or trailing `/`, `..`, more than 3 segments) fail with a validation error before any request; the server rejects the rest with `400 invalid_folder` (`IsValidationError`).
 
+### Capacity and upgrade links
+
+`GetQuota` returns `Capacity` for the product of your API key: `Storage` (`LimitBytes`, `UsedBytes`, `BaseBytes`, `AddonBlocks`), `CDN` (`LimitBytes`, `UsedBytes`, `Status`), booster balances in `Booster` (`Active`, `WPQuotaBytes`, `APITransforms`, `CDNBytes`, `NextExpiry`), the unpaid-account state `Lapse`, `PeriodEnd` and `ManageURL`. A member that does not apply to your plan is `nil`; `Capacity` itself is `nil` when the server could not read it and on older servers. Capacity is read-only here: storage add-ons and boosters are bought in the dashboard.
+
+```go
+quota, err := client.GetQuota(ctx)
+if err == nil && quota.Capacity != nil && quota.Capacity.Storage != nil {
+	fmt.Printf("Storage: %d / %d bytes\n", quota.Capacity.Storage.UsedBytes, quota.Capacity.Storage.LimitBytes)
+}
+```
+
+Errors about capacity carry `UpgradeURL()`, the dashboard page where you add it (`""` when the error has none). `storage_quota_exceeded` and `account_read_only` satisfy `IsQuotaExceeded`; `mode_not_in_plan` satisfies `IsPermissionDenied` and lists the plan's modes in `AllowedModes()`. The SDK never opens these links; show them to your user.
+
+```go
+_, err := client.OptimizeFile(ctx, "hero.png", nil)
+var spErr *smallpict.Error
+if smallpict.IsQuotaExceeded(err) && errors.As(err, &spErr) && spErr.UpgradeURL() != "" {
+	fmt.Println("Add capacity:", spErr.UpgradeURL())
+}
+```
+
 ---
 
 ## 🧪 Testing
