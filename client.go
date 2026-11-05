@@ -27,6 +27,8 @@ type Client struct {
 	maxRetries   int
 	fallbackMode string
 	httpClient   *http.Client
+	pollInterval time.Duration
+	waitTimeout  time.Duration
 }
 
 // NewClient initializes a new SmallPict Client with functional options.
@@ -38,6 +40,8 @@ func NewClient(opts ...Option) (*Client, error) {
 		timeout:      30 * time.Second,
 		maxRetries:   3,
 		fallbackMode: FallbackThrow,
+		pollInterval: time.Second,
+		waitTimeout:  120 * time.Second,
 	}
 
 	if envBase := os.Getenv("SMALLPICT_BASE_URL"); envBase != "" {
@@ -64,7 +68,10 @@ func NewClient(opts ...Option) (*Client, error) {
 	return c, nil
 }
 
-// Optimize streams an image from an io.Reader and returns the optimized result.
+// Optimize reads the image from source, queues the job, uploads the bytes to
+// the job's upload URL and waits until the job is completed. It returns a
+// job_failed *Error when the job fails and a TIMEOUT_ERROR (IsTimeout) when it
+// is still running after WithWaitTimeout.
 func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeOptions) (*OptimizeResult, error) {
 	if opts == nil {
 		opts = &OptimizeOptions{
@@ -152,26 +159,104 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 		return nil, err
 	}
 
-	origSize := getInt64(resMap, "original_size", int64(len(data)))
-	compSize := getInt64(resMap, "compressed_size", origSize)
-	saved := getInt64(resMap, "bytes_saved", int64(math.Max(0, float64(origSize-compSize))))
-	savingsPct := getFloat64(resMap, "savings_percentage", 0.0)
-	if savingsPct == 0 && origSize > 0 {
-		savingsPct = math.Round((float64(saved)/float64(origSize)*100)*100) / 100
+	jobID := getString(resMap, "job_id", "")
+	uploadURL := getString(resMap, "upload_url", "")
+	if jobID == "" || uploadURL == "" {
+		return nil, &Error{Code: "INTERNAL_ERROR", Message: "optimize response has no job_id or upload_url"}
+	}
+	if err := c.upload(ctx, uploadURL, data, mimeType); err != nil {
+		return nil, err
+	}
+	st, err := c.waitForJob(ctx, jobID)
+	if err != nil {
+		return nil, err
 	}
 
+	origSize := int64(len(data))
+	var saved int64
+	if st.BytesSaved != nil {
+		saved = *st.BytesSaved
+	}
+	var savingsPct float64
+	if origSize > 0 {
+		savingsPct = math.Round(float64(saved)/float64(origSize)*100*100) / 100
+	}
 	return &OptimizeResult{
-		JobID:             getString(resMap, "job_id", "sync"),
-		Status:            getString(resMap, "status", "completed"),
-		URL:               getString(resMap, "url", ""),
-		Format:            getString(resMap, "format", opts.Format),
+		JobID:             st.JobID,
+		Status:            st.Status,
+		URL:               st.URL,
+		Format:            st.Format,
 		OriginalSize:      origSize,
-		CompressedSize:    compSize,
+		CompressedSize:    origSize - saved,
 		BytesSaved:        saved,
 		SavingsPercentage: savingsPct,
-		UploadURL:         getString(resMap, "upload_url", ""),
-		Folder:            getString(resMap, "folder", ""),
+		ModeApplied:       st.ModeApplied,
+		QualityApplied:    st.QualityApplied,
+		Folder:            st.Folder,
 	}, nil
+}
+
+// upload PUTs the image to the pre-signed upload_url. Only Content-Type and
+// Content-Length go with it: S3 refuses extra signed headers with 403. No retry,
+// since the worker gives up 30 seconds after the optimize request.
+func (c *Client) upload(ctx context.Context, uploadURL string, data []byte, mimeType string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadURL, bytes.NewReader(data))
+	if err != nil {
+		return &Error{Code: "NETWORK_ERROR", Message: fmt.Sprintf("Failed to create upload request: %v", err), Err: err}
+	}
+	req.Header.Set("Content-Type", mimeType)
+	req.ContentLength = int64(len(data))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return &Error{Code: "NETWORK_ERROR", Message: fmt.Sprintf("Upload to storage failed: %v", err), Err: err}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		text, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return &Error{
+			Code:       "upload_failed",
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("Upload to storage failed with HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(text))),
+		}
+	}
+	return nil
+}
+
+// waitForJob polls GetJobStatus every pollInterval until the job is completed
+// or failed, for at most waitTimeout. The first poll comes after one interval.
+func (c *Client) waitForJob(ctx context.Context, jobID string) (*JobStatusResult, error) {
+	deadline := time.Now().Add(c.waitTimeout)
+	for {
+		timer := time.NewTimer(c.pollInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, &Error{Code: "TIMEOUT_ERROR", Message: fmt.Sprintf("Stopped waiting for job %s: %v", jobID, ctx.Err()), Err: ctx.Err()}
+		case <-timer.C:
+		}
+
+		st, err := c.GetJobStatus(ctx, jobID)
+		if err != nil {
+			return nil, err
+		}
+		switch st.Status {
+		case "completed":
+			return st, nil
+		case "failed":
+			msg, _ := st.Error["message"].(string)
+			if msg == "" {
+				msg = "The optimization job failed."
+			}
+			return nil, &Error{Code: "job_failed", Message: msg, Details: map[string]interface{}{"job_id": jobID}}
+		}
+		if !time.Now().Before(deadline) {
+			return nil, &Error{
+				Code:    "TIMEOUT_ERROR",
+				Message: fmt.Sprintf("Job %s did not finish within %s; it keeps running on the server, call GetJobStatus later", jobID, c.waitTimeout),
+			}
+		}
+	}
 }
 
 // OptimizeBytes compresses an in-memory byte slice.
@@ -179,8 +264,12 @@ func (c *Client) OptimizeBytes(ctx context.Context, data []byte, opts *OptimizeO
 	return c.Optimize(ctx, bytes.NewReader(data), opts)
 }
 
-// OptimizeFile reads and optimizes a local file from disk.
+// OptimizeFile reads and optimizes a local file from disk. An http(s) URL is
+// rejected: the API does not fetch URLs.
 func (c *Client) OptimizeFile(ctx context.Context, filePath string, opts *OptimizeOptions) (*OptimizeResult, error) {
+	if lower := strings.ToLower(filePath); strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return nil, &Error{Code: "VALIDATION_FAILED", Message: "the API does not fetch URLs; download the image and pass its bytes"}
+	}
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, &Error{Code: "VALIDATION_FAILED", Message: fmt.Sprintf("Failed to open file: %v", err), Err: err}

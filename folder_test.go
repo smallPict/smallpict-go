@@ -23,26 +23,17 @@ func TestOptimizeFolder(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var sent map[string]interface{}
-			mock := newMockHTTPClient(func(r *http.Request) *http.Response {
-				var body struct {
-					Options map[string]interface{} `json:"options"`
-				}
-				b, _ := io.ReadAll(r.Body)
-				_ = json.Unmarshal(b, &body)
-				sent = body.Options
-				resp := map[string]interface{}{"job_id": "job_f", "status": "queued"}
-				if tc.respFolder != nil {
-					resp["folder"] = tc.respFolder
-				}
-				return jsonResponse(http.StatusOK, resp)
-			})
-			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+			status := map[string]interface{}{"job_id": "job_1", "status": "completed", "url": "https://cdn.test/f.webp", "format": "webp", "bytes_saved": 1}
+			if tc.respFolder != nil {
+				status["folder"] = tc.respFolder
+			}
+			f := &fakeFlow{t: t, statuses: []map[string]interface{}{status}}
 
-			res, err := client.Optimize(context.Background(), bytes.NewBufferString("img"), &OptimizeOptions{Folder: tc.folder})
+			res, err := f.client().Optimize(context.Background(), bytes.NewBufferString("img"), &OptimizeOptions{Folder: tc.folder})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+			sent := f.options
 			got, present := sent["folder"]
 			if tc.wantWire == "" && present {
 				t.Errorf("folder must be omitted, got %v", got)

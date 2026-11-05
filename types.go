@@ -74,7 +74,7 @@ type OptimizeOptions struct {
 	Folder string `json:"folder,omitempty"`
 }
 
-// OptimizeResult represents the output from a successful image optimization.
+// OptimizeResult is a finished optimization job: Status is always "completed".
 type OptimizeResult struct {
 	JobID             string  `json:"job_id"`
 	Status            string  `json:"status"`
@@ -84,8 +84,12 @@ type OptimizeResult struct {
 	CompressedSize    int64   `json:"compressed_size"`
 	BytesSaved        int64   `json:"bytes_saved"`
 	SavingsPercentage float64 `json:"savings_percentage"`
-	UploadURL         string  `json:"upload_url,omitempty"`
-	Data              []byte  `json:"-"`
+	// Data holds the original bytes of a FallbackPassthrough result.
+	Data []byte `json:"-"`
+	// ModeApplied is the compression mode the server used.
+	ModeApplied string `json:"mode_applied,omitempty"`
+	// QualityApplied is the quality the encoder got; nil when the server did not report it.
+	QualityApplied *int `json:"quality_applied,omitempty"`
 	// Folder is the folder stored with the job, normalized by the server
 	// (lower case); empty without one.
 	Folder string `json:"folder,omitempty"`

@@ -36,58 +36,11 @@ func TestNewClientMissingKey(t *testing.T) {
 }
 
 func TestOptimizeSuccess(t *testing.T) {
-	mockClient := newMockHTTPClient(func(r *http.Request) *http.Response {
-		if r.URL.Path != "/v1/optimize" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-		if r.Header.Get("X-API-Key") != "sp_sdk_testkey_1234567890" {
-			t.Errorf("unexpected API key: %s", r.Header.Get("X-API-Key"))
-		}
-		if r.Header.Get("X-Signature") == "" {
-			t.Error("missing X-Signature header")
-		}
-		if r.Header.Get("Idempotency-Key") == "" {
-			t.Error("missing Idempotency-Key header")
-		}
-
-		var reqPayload struct {
-			Options struct {
-				MaxDimension int `json:"max_dimension"`
-			} `json:"options"`
-		}
-		bodyBytes, _ := io.ReadAll(r.Body)
-		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		_ = json.Unmarshal(bodyBytes, &reqPayload)
-		if reqPayload.Options.MaxDimension != 1600 {
-			t.Errorf("expected max_dimension 1600, got %d", reqPayload.Options.MaxDimension)
-		}
-
-		respBody, _ := json.Marshal(map[string]interface{}{
-			"job_id":             "job_go_123",
-			"status":             "completed",
-			"url":                "https://cdn.smallpict.app/opt/hero.avif",
-			"format":             "avif",
-			"original_size":      float64(100000),
-			"compressed_size":    float64(15000),
-			"bytes_saved":        float64(85000),
-			"savings_percentage": 85.0,
-		})
-
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewReader(respBody)),
-		}
-	})
-
-	client, err := NewClient(
-		WithAPIKey("sp_sdk_testkey_1234567890"),
-		WithSecretKey("sec_test_secret_123"),
-		WithHTTPClient(mockClient),
-	)
-	if err != nil {
-		t.Fatalf("unexpected NewClient error: %v", err)
-	}
+	f := &fakeFlow{t: t, statuses: []map[string]interface{}{{
+		"job_id": "job_1", "status": "completed", "url": "https://cdn.smallpict.app/opt/hero.avif",
+		"format": "avif", "bytes_saved": 6,
+	}}}
+	client := f.client(WithAPIKey("sp_sdk_testkey_1234567890"))
 
 	buf := bytes.NewBufferString("fake image payload bytes")
 	res, err := client.Optimize(context.Background(), buf, &OptimizeOptions{
@@ -99,14 +52,28 @@ func TestOptimizeSuccess(t *testing.T) {
 		t.Fatalf("unexpected Optimize error: %v", err)
 	}
 
-	if res.JobID != "job_go_123" {
+	if f.post.Header.Get("X-API-Key") != "sp_sdk_testkey_1234567890" {
+		t.Errorf("unexpected API key: %s", f.post.Header.Get("X-API-Key"))
+	}
+	if f.post.Header.Get("X-Signature") == "" {
+		t.Error("missing X-Signature header")
+	}
+	if f.post.Header.Get("Idempotency-Key") == "" {
+		t.Error("missing Idempotency-Key header")
+	}
+	if f.options["max_dimension"] != float64(1600) {
+		t.Errorf("expected max_dimension 1600, got %v", f.options["max_dimension"])
+	}
+
+	if res.JobID != "job_1" {
 		t.Errorf("unexpected JobID: %s", res.JobID)
 	}
 	if res.URL != "https://cdn.smallpict.app/opt/hero.avif" {
 		t.Errorf("unexpected URL: %s", res.URL)
 	}
-	if res.SavingsPercentage != 85.0 {
-		t.Errorf("unexpected SavingsPercentage: %f", res.SavingsPercentage)
+	// 6 of 24 bytes saved.
+	if res.SavingsPercentage != 25.0 || res.OriginalSize != 24 || res.CompressedSize != 18 {
+		t.Errorf("unexpected sizes: %+v", res)
 	}
 }
 
@@ -115,33 +82,18 @@ func TestOptimizeFile(t *testing.T) {
 	tmpFile := filepath.Join(tmpDir, "test.png")
 	_ = os.WriteFile(tmpFile, []byte("test binary png"), 0600)
 
-	mockClient := newMockHTTPClient(func(r *http.Request) *http.Response {
-		respBody, _ := json.Marshal(map[string]interface{}{
-			"job_id":             "job_file_1",
-			"status":             "completed",
-			"url":                "https://cdn.smallpict.app/opt/test.webp",
-			"format":             "webp",
-			"original_size":      float64(15),
-			"compressed_size":    float64(5),
-			"bytes_saved":        float64(10),
-			"savings_percentage": 66.67,
-		})
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewReader(respBody)),
-		}
-	})
-
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mockClient))
-	res, err := client.OptimizeFile(context.Background(), tmpFile, &OptimizeOptions{
+	f := &fakeFlow{t: t}
+	res, err := f.client().OptimizeFile(context.Background(), tmpFile, &OptimizeOptions{
 		Format: FormatWebP,
 	})
 	if err != nil {
 		t.Fatalf("unexpected OptimizeFile error: %v", err)
 	}
-	if res.JobID != "job_file_1" {
+	if res.JobID != "job_1" {
 		t.Errorf("unexpected JobID: %s", res.JobID)
+	}
+	if string(f.putBody) != "test binary png" {
+		t.Errorf("uploaded %q, want the file bytes", f.putBody)
 	}
 }
 

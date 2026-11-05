@@ -38,22 +38,10 @@ func TestOptimizeModeMapping(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			calls := 0
-			var sent map[string]interface{}
-			mock := newMockHTTPClient(func(r *http.Request) *http.Response {
-				calls++
-				var body struct {
-					Options map[string]interface{} `json:"options"`
-				}
-				b, _ := io.ReadAll(r.Body)
-				_ = json.Unmarshal(b, &body)
-				sent = body.Options
-				return jsonResponse(http.StatusOK, map[string]interface{}{"job_id": "job_mode", "status": "queued"})
-			})
-			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
-
+			f := &fakeFlow{t: t}
 			opts := tc.opts
-			_, err := client.Optimize(context.Background(), bytes.NewBufferString("img"), &opts)
+			_, err := f.client().Optimize(context.Background(), bytes.NewBufferString("img"), &opts)
+			calls, sent := f.requests, f.options
 
 			if tc.wantError {
 				if !IsValidationError(err) {
@@ -162,21 +150,11 @@ func TestOptimizeQualitySentOnlyWhenSet(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var sent map[string]interface{}
-			mock := newMockHTTPClient(func(r *http.Request) *http.Response {
-				var body struct {
-					Options map[string]interface{} `json:"options"`
-				}
-				b, _ := io.ReadAll(r.Body)
-				_ = json.Unmarshal(b, &body)
-				sent = body.Options
-				return jsonResponse(http.StatusOK, map[string]interface{}{"job_id": "job_q", "status": "queued"})
-			})
-			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
-
-			if _, err := client.Optimize(context.Background(), bytes.NewBufferString("img"), tc.opts); err != nil {
+			f := &fakeFlow{t: t}
+			if _, err := f.client().Optimize(context.Background(), bytes.NewBufferString("img"), tc.opts); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+			sent := f.options
 			got, present := sent["quality"]
 			if tc.wantQuality == nil {
 				if present {

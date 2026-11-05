@@ -114,3 +114,9 @@ func IsServer(err error) bool {
 	var e *Error
 	return errors.As(err, &e) && (e.StatusCode >= 500 || e.Code == "INTERNAL_ERROR")
 }
+
+// IsTimeout reports a TIMEOUT_ERROR: Optimize waited past WithWaitTimeout, or the context ended.
+func IsTimeout(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Code == "TIMEOUT_ERROR"
+}

@@ -12,7 +12,7 @@ Official idiomatic Go SDK for the [SmallPict Image Optimization API](https://sma
 
 - **🚀 100% Standard Library:** Zero external third-party HTTP dependencies.
 - **⏱️ Full `context.Context` Propagation:** Seamless timeout and cancellation control on all network calls.
-- **🌊 Zero-Copy Streaming:** Native `io.Reader` and `io.Writer` support for memory-efficient handling of large image buffers.
+- **🌊 Any Byte Source:** `Optimize` takes an `io.Reader`, `OptimizeBytes` a `[]byte`, `OptimizeFile` a local path. The image is read into memory first, since its exact size is sent with the request.
 - **🛡️ Secure HMAC-SHA256 & Bearer Auth:** Tamper-proof payload verification.
 - **✨ 4 Core Unified Methods:** `Optimize()`, `GetQuota()`, `PurgeCDN()`, and `ValidateKey()`.
 - **🔄 Resilience & Fault Tolerance:** Automatic `Idempotency-Key` UUID injection, 30s timeouts, and exponential backoff with jitter on HTTP 429/5xx.
@@ -53,7 +53,7 @@ func main() {
 		log.Fatalf("Failed to initialize SmallPict client: %v", err)
 	}
 
-	result, err := smallpict.OptimizeFile(context.Background(), "hero-banner.png", &smallpict.OptimizeOptions{
+	result, err := client.OptimizeFile(context.Background(), "hero-banner.png", &smallpict.OptimizeOptions{
 		Format:   smallpict.FormatAVIF,
 		Quality:  80,
 		MaxWidth: 1920,
@@ -62,10 +62,26 @@ func main() {
 		log.Fatalf("Optimization failed: %v", err)
 	}
 
-	fmt.Printf("Optimized CDN URL: %s\n", result.URL)
+	fmt.Printf("Optimized URL: %s\n", result.URL)
 	fmt.Printf("Original: %d B ➔ Compressed: %d B\n", result.OriginalSize, result.CompressedSize)
 	fmt.Printf("Saved: %.2f%% (%d bytes)\n", result.SavingsPercentage, result.BytesSaved)
 }
+```
+
+### What `Optimize` does
+
+The API is asynchronous: `POST /v1/optimize` queues a job and returns a pre-signed upload URL. `Optimize`, `OptimizeBytes` and `OptimizeFile` run the whole flow for you: they upload the bytes to that URL (within the 30 seconds the worker waits for them), poll `GET /v1/optimize/status` every second, and return once the job is `completed` with `URL`, `Format`, `BytesSaved`, `ModeApplied`, `QualityApplied` and `Folder` from the job status. `OriginalSize` is the number of bytes sent and `CompressedSize` is `OriginalSize - BytesSaved`. `URL` for managed storage is a pre-signed link valid 10 minutes; `client.GetJobStatus(ctx, result.JobID)` returns a fresh one.
+
+- A failed job returns an `*smallpict.Error` whose `Code` is `job_failed`, whose message is the server's (for example `client upload never arrived`) and whose `Details["job_id"]` names the job. Storage refusing the upload returns `Code` `upload_failed` with the HTTP status.
+- A job still running after `WithWaitTimeout` (default 120 s) returns an error for which `smallpict.IsTimeout` is true, naming the job id; the job keeps running, so you can call `GetJobStatus` later. `WithPollInterval` (default 1 s) sets the polling interval. Cancelling `ctx` also stops the wait.
+- Pass bytes or a local file. `OptimizeFile` with an `http://` or `https://` URL returns a `VALIDATION_FAILED` error before any request: the API does not fetch URLs, so download the image yourself first.
+
+```go
+client, err := smallpict.NewClient(
+	smallpict.WithAPIKey(os.Getenv("SMALLPICT_API_KEY")),
+	smallpict.WithPollInterval(500*time.Millisecond),
+	smallpict.WithWaitTimeout(60*time.Second),
+)
 ```
 
 ### 2. HTTP Web Handler with io.Reader Streaming
@@ -98,6 +114,10 @@ func handleUpload(client *smallpict.Client) http.HandlerFunc {
 				http.Error(w, "Monthly image optimization quota exceeded", http.StatusPaymentRequired)
 				return
 			}
+			if smallpict.IsTimeout(err) {
+				http.Error(w, "Optimization is still running, try again later", http.StatusGatewayTimeout)
+				return
+			}
 			http.Error(w, "Optimization failed", http.StatusInternalServerError)
 			return
 		}
@@ -124,9 +144,8 @@ if smallpict.IsPermissionDenied(err) && errors.As(err, &apiErr) {
 	log.Fatal(err)
 }
 
-status, err := client.GetJobStatus(ctx, result.JobID)
-if err == nil && status.QualityApplied != nil {
-	fmt.Printf("%s at quality %d\n", status.ModeApplied, *status.QualityApplied)
+if result.QualityApplied != nil {
+	fmt.Printf("%s at quality %d\n", result.ModeApplied, *result.QualityApplied)
 }
 ```
 

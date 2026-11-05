@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-05
+
+### Fixed
+- **`Optimize` now returns an optimized image.** `POST /v1/optimize` only queues the job and returns a pre-signed `upload_url`; the SDK stopped there, so the worker failed every job with "client upload never arrived" and callers got an empty `URL` with 0 % saved. `Optimize`, `OptimizeBytes` and `OptimizeFile` now PUT the bytes to `upload_url` (plain PUT with `Content-Type` and `Content-Length` as sent, no API headers, no retry), poll `GET /v1/optimize/status` every poll interval (default 1 s) and return once the job is `completed`, with `URL`, `Format`, `BytesSaved`, `ModeApplied`, `QualityApplied` and `Folder` from the job status (`SDK_SPEC.md` section 3d). Cancelling the context also stops the wait.
+
+### Added
+- Client options `WithPollInterval` (default 1 s) and `WithWaitTimeout` (default 120 s).
+- `OptimizeResult.ModeApplied` and `OptimizeResult.QualityApplied`.
+- Error codes `job_failed` (a failed job: `*Error` with the server's `error.message` and `Details["job_id"]`) and `upload_failed` (the storage refused the PUT: `*Error` with the HTTP status and the response text). A job still running after the wait timeout returns a `TIMEOUT_ERROR` naming the job id; it keeps running on the server.
+- `IsTimeout(err)` for `TIMEOUT_ERROR`.
+
+### Changed
+- **`OptimizeResult.Status` is always `"completed"`** and `OptimizeResult.UploadURL` is gone: there is no result to return before the job finished. Code that checked `Status == "queued"` or used `UploadURL` to upload by itself can drop that.
+- **`OptimizeFile` with an `http(s)` URL returns a `VALIDATION_FAILED` error** before any request. The API never fetched URLs; the SDK does not download on your behalf.
+- `CompressedSize` and `SavingsPercentage` are derived from the bytes sent and `bytes_saved` of the job status.
+- README: "What `Optimize` does".
+
 ## [0.0.7] - 2026-10-31
 
 ### Added

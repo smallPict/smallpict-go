@@ -60,3 +60,18 @@ func WithHTTPClient(client *http.Client) Option {
 		c.httpClient = client
 	}
 }
+
+// WithPollInterval sets how often Optimize polls the job status while it waits (default: 1s).
+func WithPollInterval(interval time.Duration) Option {
+	return func(c *Client) {
+		c.pollInterval = interval
+	}
+}
+
+// WithWaitTimeout sets how long Optimize waits for the job to finish (default: 120s).
+// After it, Optimize returns a TIMEOUT_ERROR; the job keeps running on the server.
+func WithWaitTimeout(timeout time.Duration) Option {
+	return func(c *Client) {
+		c.waitTimeout = timeout
+	}
+}
