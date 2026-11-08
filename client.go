@@ -18,6 +18,9 @@ import (
 	"time"
 )
 
+// maxRetryAfter caps a server's Retry-After, so one header cannot hang a caller.
+var maxRetryAfter = 30 * time.Second
+
 // Client is the official SmallPict API client.
 type Client struct {
 	apiKey       string
@@ -516,8 +519,9 @@ func (c *Client) request(
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			if attempt <= c.maxRetries {
-				delay := baseDelay * time.Duration(1<<(attempt-1))
-				time.Sleep(delay)
+				if err := sleepCtx(ctx, baseDelay*time.Duration(1<<(attempt-1))); err != nil {
+					return nil, err
+				}
 				continue
 			}
 			return nil, &Error{Code: "NETWORK_ERROR", Message: fmt.Sprintf("HTTP request failed: %v", err), Err: err}
@@ -543,11 +547,13 @@ func (c *Client) request(
 				delay := baseDelay * time.Duration(1<<(attempt-1))
 				if retryAfterHeader != "" {
 					if sec, parseErr := strconv.Atoi(retryAfterHeader); parseErr == nil && sec > 0 {
-						delay = time.Duration(sec) * time.Second
+						delay = min(time.Duration(sec)*time.Second, maxRetryAfter)
 					}
 				}
 				jitter := time.Duration(cryptoRandomInt(0, 100)) * time.Millisecond
-				time.Sleep(delay + jitter)
+				if err := sleepCtx(ctx, delay+jitter); err != nil {
+					return nil, err
+				}
 				continue
 			}
 		}
@@ -589,6 +595,18 @@ func (c *Client) request(
 	}
 
 	return nil, &Error{Code: "NETWORK_ERROR", Message: "Request failed after maximum retry attempts"}
+}
+
+// sleepCtx waits d, or returns a TIMEOUT_ERROR as soon as ctx ends.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return &Error{Code: "TIMEOUT_ERROR", Message: fmt.Sprintf("Context canceled: %v", ctx.Err()), Err: ctx.Err()}
+	case <-timer.C:
+		return nil
+	}
 }
 
 func errorCode(result map[string]interface{}) string {
