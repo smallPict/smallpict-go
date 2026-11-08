@@ -7,8 +7,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  # A tag is announced to the module proxy only after the tests pass on the oldest supported Go.
+  test:
+    name: Test (Go 1.21)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.21"
+      - name: Run Tests with Race Detector
+        run: go test -race ./...
+
   index:
     name: 📦 Ping pkg.go.dev Indexing
+    needs: test
     runs-on: ubuntu-26.04
     steps:
       - name: Request Go Module Proxy Indexing
