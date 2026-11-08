@@ -520,7 +520,8 @@ func (c *Client) request(
 			return nil, &Error{Code: "NETWORK_ERROR", Message: fmt.Sprintf("HTTP request failed: %v", err), Err: err}
 		}
 
-		respBytes, _ := io.ReadAll(resp.Body)
+		// API answers are small JSON; a wrong base URL must not be read into memory whole.
+		respBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		resp.Body.Close()
 
 		requestID := resp.Header.Get("X-Request-ID")

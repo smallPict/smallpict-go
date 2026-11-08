@@ -94,3 +94,39 @@ func TestOptimizeRetrySendsTheSameIdempotencyKey(t *testing.T) {
 		t.Fatalf("Idempotency-Key per POST = %q, want the same non-empty key twice", keys)
 	}
 }
+
+// countingBody serves n bytes and counts what the client reads.
+type countingBody struct{ left, read int }
+
+func (b *countingBody) Read(p []byte) (int, error) {
+	if b.left == 0 {
+		return 0, io.EOF
+	}
+	n := len(p)
+	if n > b.left {
+		n = b.left
+	}
+	for i := range p[:n] {
+		p[i] = ' '
+	}
+	b.left -= n
+	b.read += n
+	return n, nil
+}
+func (b *countingBody) Close() error { return nil }
+
+// A wrong base URL (a big HTML page, a proxy error dump) must not be read into memory whole.
+func TestAPIResponseBodyIsCapped(t *testing.T) {
+	body := &countingBody{left: 2 << 20}
+	c, err := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(newMockHTTPClient(
+		func(r *http.Request) *http.Response {
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: body}
+		})))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = c.GetQuota(context.Background())
+	if body.read > 1<<20 {
+		t.Fatalf("read %d bytes of a 2 MiB response; want at most 1 MiB", body.read)
+	}
+}
