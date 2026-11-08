@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +24,7 @@ type fakeFlow struct {
 	putStatus int                      // 0 means 200
 	statuses  []map[string]interface{} // poll answers in order, the last one repeats; nil means completed
 	options   map[string]interface{}   // options sent with the POST
+	filenames []string                 // filename of each POST, in order
 	post      *http.Request
 	put       *http.Request
 	putBody   []byte
@@ -35,11 +38,13 @@ func (f *fakeFlow) roundTrip(r *http.Request) *http.Response {
 	case r.Method == http.MethodPost && r.URL.Path == "/v1/optimize":
 		f.post = r
 		var body struct {
-			Options map[string]interface{} `json:"options"`
+			Filename string                 `json:"filename"`
+			Options  map[string]interface{} `json:"options"`
 		}
 		b, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(b, &body)
 		f.options = body.Options
+		f.filenames = append(f.filenames, body.Filename)
 		q := f.queued
 		if q == nil {
 			q = map[string]interface{}{"job_id": "job_1", "status": "queued", "upload_url": testUploadURL, "object_key": "in/job_1", "bucket": "uploads"}
@@ -208,5 +213,30 @@ func TestOptimizeFileRejectsURL(t *testing.T) {
 		if f.requests != 0 {
 			t.Errorf("%s: %d requests sent, want 0", src, f.requests)
 		}
+	}
+}
+
+// A caller that reuses one options value for many files must not have the first file's
+// name sent for every later one.
+func TestOptimizeFileKeepsCallerOptions(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a.png", "b.png"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("img"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f := &fakeFlow{t: t}
+	c := f.client()
+	opts := &OptimizeOptions{Format: FormatWebP}
+	for _, name := range []string{"a.png", "b.png"} {
+		if _, err := c.OptimizeFile(context.Background(), filepath.Join(dir, name), opts); err != nil {
+			t.Fatalf("OptimizeFile %s: %v", name, err)
+		}
+	}
+	if got := strings.Join(f.filenames, ","); got != "a.png,b.png" {
+		t.Fatalf("filenames sent = %q, want a.png,b.png", got)
+	}
+	if opts.Filename != "" {
+		t.Fatalf("caller's options were changed: Filename = %q", opts.Filename)
 	}
 }

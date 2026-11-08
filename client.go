@@ -290,11 +290,13 @@ func (c *Client) OptimizeFile(ctx context.Context, filePath string, opts *Optimi
 			StripMetadata: true,
 		}
 	}
-	if opts.Filename == "" {
-		opts.Filename = filepath.Base(filePath)
+	// A copy, so a caller reusing one options value for many files keeps it unchanged.
+	o := *opts
+	if o.Filename == "" {
+		o.Filename = filepath.Base(filePath)
 	}
 
-	return c.Optimize(ctx, f, opts)
+	return c.Optimize(ctx, f, &o)
 }
 
 // GetQuota retrieves real-time account storage quota and CDN egress bandwidth metrics.

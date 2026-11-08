@@ -11,7 +11,7 @@ Next release after v0.0.7. This section was first written as 0.1.0, which was ne
 
 ### Fixed
 - **`Optimize` now returns an optimized image.** `POST /v1/optimize` only queues the job and returns a pre-signed `upload_url`; the SDK stopped there, so the worker failed every job with "client upload never arrived" and callers got an empty `URL` with 0 % saved. `Optimize`, `OptimizeBytes` and `OptimizeFile` now PUT the bytes to `upload_url` (plain PUT with `Content-Type` and `Content-Length` as sent, no API headers, no retry), poll `GET /v1/optimize/status` every poll interval (default 1 s) and return once the job is `completed`, with `URL`, `Format`, `BytesSaved`, `ModeApplied`, `QualityApplied` and `Folder` from the job status (`SDK_SPEC.md` section 3d). Cancelling the context also stops the wait.
-
+- **`OptimizeFile` no longer writes into the caller's options.** It set `Filename` on the `*OptimizeOptions` it was given, so a loop reusing one value sent the first file's name (and extension) for every later file. It now works on a copy.
 ### Added
 - Client options `WithPollInterval` (default 1 s) and `WithWaitTimeout` (default 120 s).
 - `OptimizeResult.ModeApplied` and `OptimizeResult.QualityApplied`.
