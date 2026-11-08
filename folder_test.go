@@ -52,7 +52,7 @@ func TestJobStatusFolder(t *testing.T) {
 	mock := newMockHTTPClient(func(r *http.Request) *http.Response {
 		return jsonResponse(http.StatusOK, map[string]interface{}{"job_id": "j1", "status": "succeeded", "folder": "blog/2026"})
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 
 	res, err := client.GetJobStatus(context.Background(), "j1")
 	if err != nil {
@@ -73,7 +73,7 @@ func TestPurgeFolderBody(t *testing.T) {
 		_ = json.Unmarshal(b, &body)
 		return jsonResponse(http.StatusAccepted, map[string]interface{}{"message": "Purge job enqueued successfully"})
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 
 	if _, err := client.PurgeFolder(context.Background(), "products/shoes"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -96,7 +96,7 @@ func TestPurgeURLBodyHasNoFolder(t *testing.T) {
 		_ = json.Unmarshal(b, &body)
 		return jsonResponse(http.StatusAccepted, map[string]interface{}{"message": "ok"})
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 
 	if _, err := client.PurgeCDN(context.Background(), []string{"https://cdn.smallpict.app/c/j.avif"}, PurgeTypeURL); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -116,7 +116,7 @@ func TestFolderClientSideRejects(t *testing.T) {
 				calls++
 				return jsonResponse(http.StatusAccepted, map[string]interface{}{})
 			})
-			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+			client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 
 			_, err := client.PurgeFolder(context.Background(), folder)
 			if !IsValidationError(err) {
@@ -135,7 +135,7 @@ func TestFolderClientSideRejects(t *testing.T) {
 				calls++
 				return jsonResponse(http.StatusOK, map[string]interface{}{})
 			})
-			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+			client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 
 			_, err := client.Optimize(context.Background(), bytes.NewBufferString("img"), &OptimizeOptions{Folder: folder})
 			if !IsValidationError(err) {
@@ -154,7 +154,7 @@ func TestPurgeCDNFolderTypeNeedsFolder(t *testing.T) {
 		calls++
 		return jsonResponse(http.StatusAccepted, map[string]interface{}{})
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 
 	_, err := client.PurgeCDN(context.Background(), nil, PurgeTypeFolder)
 	if !IsValidationError(err) {
@@ -188,7 +188,7 @@ func TestFolderServerErrors(t *testing.T) {
 					"error":   map[string]interface{}{"code": tc.code, "message": tc.message},
 				})
 			})
-			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock), WithMaxRetries(3))
+			client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock), WithMaxRetries(3))
 
 			_, err := client.PurgeFolder(context.Background(), "products")
 			if !tc.check(err) {
@@ -216,7 +216,7 @@ func TestOtherRateLimitStillRetried(t *testing.T) {
 		}
 		return jsonResponse(http.StatusAccepted, map[string]interface{}{"message": "ok"})
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock), WithMaxRetries(1))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock), WithMaxRetries(1))
 
 	if _, err := client.PurgeFolder(context.Background(), "products"); err != nil {
 		t.Fatalf("unexpected error: %v", err)

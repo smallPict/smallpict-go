@@ -58,6 +58,13 @@ func NewClient(opts ...Option) (*Client, error) {
 			Message: "Missing required SmallPict API key. Pass WithAPIKey(...) or set SMALLPICT_API_KEY environment variable.",
 		}
 	}
+	// Every request is signed with HMAC-SHA256; the API refuses unsigned (Bearer) requests.
+	if c.secretKey == "" {
+		return nil, &Error{
+			Code:    "VALIDATION_FAILED",
+			Message: "Missing required SmallPict secret key. Pass WithSecretKey(...) or set SMALLPICT_SECRET_KEY environment variable.",
+		}
+	}
 
 	if c.httpClient == nil {
 		c.httpClient = &http.Client{
@@ -493,14 +500,9 @@ func (c *Client) request(
 			req.Header.Set("Content-Type", "application/json")
 		}
 
-		if c.secretKey != "" {
-			stringToSign := BuildStringToSign(method, cleanPath, timestamp, bodyHash)
-			signature := HMACSHA256Hex(c.secretKey, stringToSign)
-			req.Header.Set("X-Timestamp", timestamp)
-			req.Header.Set("X-Signature", signature)
-		} else {
-			req.Header.Set("Authorization", "Bearer "+c.apiKey)
-		}
+		stringToSign := BuildStringToSign(method, cleanPath, timestamp, bodyHash)
+		req.Header.Set("X-Timestamp", timestamp)
+		req.Header.Set("X-Signature", HMACSHA256Hex(c.secretKey, stringToSign))
 
 		if method == http.MethodPost || method == http.MethodPatch || method == http.MethodDelete {
 			if idempotencyKey == "" {

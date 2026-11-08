@@ -13,8 +13,8 @@ Official idiomatic Go SDK for the [SmallPict Image Optimization API](https://sma
 - **🚀 100% Standard Library:** Zero external third-party HTTP dependencies.
 - **⏱️ Full `context.Context` Propagation:** Seamless timeout and cancellation control on all network calls.
 - **🌊 Any Byte Source:** `Optimize` takes an `io.Reader`, `OptimizeBytes` a `[]byte`, `OptimizeFile` a local path. The image is read into memory first, since its exact size is sent with the request.
-- **🛡️ Secure HMAC-SHA256 & Bearer Auth:** Tamper-proof payload verification.
-- **✨ 4 Core Unified Methods:** `Optimize()`, `GetQuota()`, `PurgeCDN()`, and `ValidateKey()`.
+- **🛡️ HMAC-SHA256 request signing:** every request is signed with your secret key; the API refuses unsigned requests.
+- **✨ Methods:** `Optimize()`, `OptimizeBytes()`, `OptimizeFile()`, `GetJobStatus()`, `GetQuota()`, `PurgeCDN()`, `PurgeFolder()` and `ValidateKey()`.
 - **🔄 Resilience & Fault Tolerance:** Automatic `Idempotency-Key` UUID injection, 30s timeouts, and exponential backoff with jitter on HTTP 429/5xx.
 - **🔒 Zero-Leak Privacy:** API keys and credentials are automatically redacted from `Error()` and `String()` outputs.
 
@@ -47,7 +47,7 @@ import (
 func main() {
 	client, err := smallpict.NewClient(
 		smallpict.WithAPIKey(os.Getenv("SMALLPICT_API_KEY")),
-		smallpict.WithSecretKey(os.Getenv("SMALLPICT_SECRET_KEY")), // Optional HMAC Secret
+		smallpict.WithSecretKey(os.Getenv("SMALLPICT_SECRET_KEY")), // required: signs every request
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize SmallPict client: %v", err)

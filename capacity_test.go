@@ -72,7 +72,7 @@ func quotaFromFixture(t *testing.T, name string) *QuotaResponse {
 	mock := newMockHTTPClient(func(r *http.Request) *http.Response {
 		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(body))}
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 	q, err := client.GetQuota(context.Background())
 	if err != nil {
 		t.Fatalf("GetQuota: %v", err)
@@ -184,7 +184,7 @@ func TestCapacityErrors(t *testing.T) {
 					"error": map[string]interface{}{"code": tc.code, "message": "capacity", "details": tc.details},
 				})
 			})
-			client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+			client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 			_, err := client.GetQuota(context.Background())
 
 			var e *Error

@@ -26,9 +26,22 @@ func newMockHTTPClient(fn roundTripFunc) *http.Client {
 }
 
 func TestNewClientMissingKey(t *testing.T) {
-	_, err := NewClient(WithAPIKey(""))
+	_, err := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey(""))
 	if err == nil {
 		t.Fatal("expected error on missing API key")
+	}
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got: %v", err)
+	}
+}
+
+// The API refuses requests without an HMAC signature (403 "Legacy Bearer token format is no
+// longer supported"), so a client without a secret key is a configuration error up front.
+func TestNewClientMissingSecret(t *testing.T) {
+	t.Setenv("SMALLPICT_SECRET_KEY", "")
+	_, err := NewClient(WithAPIKey("sp_sdk_test_key_1234"))
+	if err == nil {
+		t.Fatal("expected error on missing secret key")
 	}
 	if !IsValidationError(err) {
 		t.Fatalf("expected validation error, got: %v", err)
@@ -115,8 +128,7 @@ func TestGetQuota(t *testing.T) {
 		}
 	})
 
-	client, err := NewClient(
-		WithAPIKey("sp_sdk_test"),
+	client, err := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"),
 		WithHTTPClient(mockClient),
 	)
 	if err != nil {
@@ -150,8 +162,7 @@ func TestPurgeCDN(t *testing.T) {
 		}
 	})
 
-	client, err := NewClient(
-		WithAPIKey("sp_sdk_test"),
+	client, err := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"),
 		WithHTTPClient(mockClient),
 	)
 	if err != nil {
@@ -183,7 +194,7 @@ func TestGetJobStatus(t *testing.T) {
 		}
 	})
 
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mockClient))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mockClient))
 	res, err := client.GetJobStatus(context.Background(), "job_async_123")
 	if err != nil {
 		t.Fatalf("unexpected GetJobStatus error: %v", err)
@@ -214,12 +225,12 @@ func TestValidateKey(t *testing.T) {
 		}
 	})
 
-	validClient, _ := NewClient(WithAPIKey("sp_sdk_valid"), WithHTTPClient(validMock))
+	validClient, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_valid"), WithHTTPClient(validMock))
 	if !validClient.ValidateKey(context.Background()) {
 		t.Error("expected valid key to return true")
 	}
 
-	invalidClient, _ := NewClient(WithAPIKey("sp_sdk_invalid"), WithHTTPClient(validMock))
+	invalidClient, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_invalid"), WithHTTPClient(validMock))
 	if invalidClient.ValidateKey(context.Background()) {
 		t.Error("expected invalid key to return false")
 	}
@@ -240,8 +251,7 @@ func TestFallbackPassthrough(t *testing.T) {
 		}
 	})
 
-	client, err := NewClient(
-		WithAPIKey("sp_sdk_test"),
+	client, err := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"),
 		WithFallbackMode(FallbackPassthrough),
 		WithHTTPClient(mockClient),
 	)
@@ -315,7 +325,7 @@ func TestContextCancellation(t *testing.T) {
 		}
 	})
 
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mockClient))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mockClient))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately

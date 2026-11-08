@@ -76,7 +76,7 @@ func TestGetJobStatusModeApplied(t *testing.T) {
 			"job_id": "job_1", "status": "completed", "mode_applied": "extreme", "quality_applied": 68,
 		})
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 	res, err := client.GetJobStatus(context.Background(), "job_1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -92,7 +92,7 @@ func TestGetJobStatusModeApplied(t *testing.T) {
 	mockOld := newMockHTTPClient(func(r *http.Request) *http.Response {
 		return jsonResponse(http.StatusOK, map[string]interface{}{"job_id": "job_old", "status": "completed"})
 	})
-	client, _ = NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mockOld))
+	client, _ = NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mockOld))
 	res, err = client.GetJobStatus(context.Background(), "job_old")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -115,7 +115,7 @@ func TestOptimizeModeNotInPlan(t *testing.T) {
 			},
 		})
 	})
-	client, _ := NewClient(WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
+	client, _ := NewClient(WithSecretKey("sk_test_secret"), WithAPIKey("sp_sdk_test"), WithHTTPClient(mock))
 	_, err := client.Optimize(context.Background(), bytes.NewBufferString("img"), &OptimizeOptions{Mode: ModeLossless})
 	if !IsPermissionDenied(err) {
 		t.Fatalf("expected permission denied, got %v", err)
