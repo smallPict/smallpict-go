@@ -85,11 +85,7 @@ func NewClient(opts ...Option) (*Client, error) {
 // Idempotency-Key, so the API returns the first job instead of a second one.
 func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeOptions) (*OptimizeResult, error) {
 	if opts == nil {
-		opts = &OptimizeOptions{
-			Format:        FormatAuto,
-			Fit:           FitCover,
-			StripMetadata: true,
-		}
+		opts = &OptimizeOptions{Format: FormatAuto}
 	}
 
 	mode := opts.Mode
@@ -127,13 +123,13 @@ func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeO
 		mimeType = "image/jpeg"
 	}
 
-	options := map[string]interface{}{
-		"format":         opts.Format,
-		"max_width":      opts.MaxWidth,
-		"max_height":     opts.MaxHeight,
-		"max_dimension":  opts.MaxDimension,
-		"fit":            opts.Fit,
-		"strip_metadata": opts.StripMetadata,
+	// Only what the API reads: it has no fit option, always strips metadata, and reads a
+	// missing size as no limit.
+	options := map[string]interface{}{"format": opts.Format}
+	for k, v := range map[string]int{"max_width": opts.MaxWidth, "max_height": opts.MaxHeight, "max_dimension": opts.MaxDimension} {
+		if v > 0 {
+			options[k] = v
+		}
 	}
 	// Zero quality is omitted so the server picks its default for the mode and format.
 	if opts.Quality != 0 {
@@ -288,11 +284,7 @@ func (c *Client) OptimizeFile(ctx context.Context, filePath string, opts *Optimi
 	defer f.Close()
 
 	if opts == nil {
-		opts = &OptimizeOptions{
-			Format:        FormatAuto,
-			Fit:           FitCover,
-			StripMetadata: true,
-		}
+		opts = &OptimizeOptions{Format: FormatAuto}
 	}
 	// A copy, so a caller reusing one options value for many files keeps it unchanged.
 	o := *opts

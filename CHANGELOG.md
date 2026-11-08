@@ -25,6 +25,10 @@ Next release after v0.0.7. This section was first written as 0.1.0, which was ne
 - `CompressedSize` and `SavingsPercentage` are derived from the bytes sent and `bytes_saved` of the job status.
 - README: "What `Optimize` does".
 - **`NewClient` requires a secret key** (`WithSecretKey` or `SMALLPICT_SECRET_KEY`) and returns a `VALIDATION_FAILED` error without one. The Bearer-only request path is gone: the API refuses unsigned requests with 403 ("Legacy Bearer token format is no longer supported"), so a client without a secret could never succeed. README: the secret is required; the feature list names all public methods.
+- `Optimize` sends only the options the API reads: `max_width`, `max_height` and `max_dimension` only when above 0, and no longer `fit` or `strip_metadata`.
+
+### Deprecated
+- `OptimizeOptions.Fit`, the `Fit*` constants and `OptimizeOptions.StripMetadata`: the API has no fit option and always removes metadata (EXIF, GPS, ICC), so neither did anything. They stay so existing code compiles, are no longer sent, and will be removed in a later release.
 
 ## [0.0.7] - 2026-10-31
 

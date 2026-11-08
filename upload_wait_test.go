@@ -240,3 +240,21 @@ func TestOptimizeFileKeepsCallerOptions(t *testing.T) {
 		t.Fatalf("caller's options were changed: Filename = %q", opts.Filename)
 	}
 }
+
+// The API has no fit option and always strips metadata, and it reads a missing size as
+// "no limit": sending fit, strip_metadata or zero sizes only suggests controls that do nothing.
+func TestOptimizeSendsOnlyOptionsTheAPIUses(t *testing.T) {
+	f := &fakeFlow{t: t}
+	opts := &OptimizeOptions{Format: FormatWebP, Fit: FitContain, StripMetadata: false, MaxDimension: 1600}
+	if _, err := f.client().OptimizeBytes(context.Background(), []byte("img"), opts); err != nil {
+		t.Fatalf("OptimizeBytes: %v", err)
+	}
+	for _, k := range []string{"fit", "strip_metadata", "max_width", "max_height"} {
+		if v, ok := f.options[k]; ok {
+			t.Errorf("options[%q] = %v was sent; the API does not use it", k, v)
+		}
+	}
+	if f.options["max_dimension"] != float64(1600) {
+		t.Errorf("max_dimension = %v, want 1600", f.options["max_dimension"])
+	}
+}

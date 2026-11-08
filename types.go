@@ -12,6 +12,8 @@ const (
 )
 
 // Resizing bounding box fit modes.
+//
+// Deprecated: the API has no fit option; OptimizeOptions.Fit is not sent.
 const (
 	FitCover   = "cover"
 	FitContain = "contain"
@@ -51,18 +53,20 @@ type OptimizeOptions struct {
 	Format string `json:"format,omitempty"`
 	// Quality is the encoder quality (1-100). Zero leaves it to the server,
 	// which picks a default per mode and output format.
-	Quality      int    `json:"quality,omitempty"`
-	MaxWidth     int    `json:"max_width,omitempty"`
-	MaxHeight    int    `json:"max_height,omitempty"`
-	MaxDimension int    `json:"max_dimension,omitempty"`
-	Fit          string `json:"fit,omitempty"`
+	Quality      int `json:"quality,omitempty"`
+	MaxWidth     int `json:"max_width,omitempty"`
+	MaxHeight    int `json:"max_height,omitempty"`
+	MaxDimension int `json:"max_dimension,omitempty"`
+	// Deprecated: the API has no fit option, so Fit is not sent.
+	Fit string `json:"fit,omitempty"`
 	// Mode is the compression mode. Empty leaves it to the server (lossy).
 	Mode CompressionMode `json:"mode,omitempty"`
 	// Lossless requests lossless compression.
 	//
 	// Deprecated: use Mode. Lossless true is sent as Mode ModeLossless; it is
 	// a validation error together with a different Mode.
-	Lossless       bool   `json:"lossless,omitempty"`
+	Lossless bool `json:"lossless,omitempty"`
+	// Deprecated: the API always removes metadata, so StripMetadata is not sent.
 	StripMetadata  bool   `json:"strip_metadata"`
 	Filename       string `json:"filename,omitempty"`
 	MIMEType       string `json:"mime_type,omitempty"`
