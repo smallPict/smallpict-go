@@ -18,7 +18,7 @@ Next release after v0.0.7. This section was first written as 0.1.0, which was ne
 - `OptimizeResult.ModeApplied` and `OptimizeResult.QualityApplied`.
 - Error codes `job_failed` (a failed job: `*Error` with the server's `error.message` and `Details["job_id"]`) and `upload_failed` (the storage refused the PUT: `*Error` with the HTTP status and the response text). A job still running after the wait timeout returns a `TIMEOUT_ERROR` naming the job id; it keeps running on the server.
 - `IsTimeout(err)` for `TIMEOUT_ERROR`.
-
+- A test pins that a retried `Optimize` request sends the same `Idempotency-Key`. Since the API of 2026-11-08 deduplicates `POST /v1/optimize` by that key, a retry after a gateway 5xx returns the first job and is not charged twice; the README says so.
 ### Changed
 - **`OptimizeResult.Status` is always `"completed"`** and `OptimizeResult.UploadURL` is gone: there is no result to return before the job finished. Code that checked `Status == "queued"` or used `UploadURL` to upload by itself can drop that.
 - **`OptimizeFile` with an `http(s)` URL returns a `VALIDATION_FAILED` error** before any request. The API never fetched URLs; the SDK does not download on your behalf.

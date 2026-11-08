@@ -81,7 +81,8 @@ func NewClient(opts ...Option) (*Client, error) {
 // Optimize reads the image from source, queues the job, uploads the bytes to
 // the job's upload URL and waits until the job is completed. It returns a
 // job_failed *Error when the job fails and a TIMEOUT_ERROR (IsTimeout) when it
-// is still running after WithWaitTimeout.
+// is still running after WithWaitTimeout. A retry after a 5xx sends the same
+// Idempotency-Key, so the API returns the first job instead of a second one.
 func (c *Client) Optimize(ctx context.Context, source io.Reader, opts *OptimizeOptions) (*OptimizeResult, error) {
 	if opts == nil {
 		opts = &OptimizeOptions{
