@@ -5,9 +5,9 @@ All notable changes to the `github.com/smallpict/smallpict-go` package will be d
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.8] - Unreleased
 
-## [0.1.0] - 2026-11-05
+Next release after v0.0.7. This section was first written as 0.1.0, which was never tagged.
 
 ### Fixed
 - **`Optimize` now returns an optimized image.** `POST /v1/optimize` only queues the job and returns a pre-signed `upload_url`; the SDK stopped there, so the worker failed every job with "client upload never arrived" and callers got an empty `URL` with 0 % saved. `Optimize`, `OptimizeBytes` and `OptimizeFile` now PUT the bytes to `upload_url` (plain PUT with `Content-Type` and `Content-Length` as sent, no API headers, no retry), poll `GET /v1/optimize/status` every poll interval (default 1 s) and return once the job is `completed`, with `URL`, `Format`, `BytesSaved`, `ModeApplied`, `QualityApplied` and `Folder` from the job status (`SDK_SPEC.md` section 3d). Cancelling the context also stops the wait.
